@@ -30,14 +30,24 @@ func main() {
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	<-sig
 
-	for {
-		msg, err := reader.ReadMessage(context.Background())
-		if err != nil {
-			log.Fatalf("Error while reading message: %v", err)
+	stop := make(chan struct{}) // Channel to signal the loop to stop
+
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				msg, err := reader.ReadMessage(context.Background())
+				if err != nil {
+					log.Fatalf("Error while reading message: %v", err)
+				}
+				fmt.Printf("Received message: %s\n", msg.Value)
+			}
 		}
+	}()
 
-		fmt.Printf("Received message: %s\n", msg.Value)
-	}
+	<-sig       // Wait for termination signal
+	close(stop) // Signal the loop to stop
 }
